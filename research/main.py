@@ -1,4 +1,4 @@
-from agent.base import BaseAgent
+from research.agents.base import BaseAgent
 
 class ResearchAgent(BaseAgent):
     def __init__(self, *args, **kwargs):

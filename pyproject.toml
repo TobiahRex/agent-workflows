@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "agent-corpus"
+name = "agent-workflows"
 version = "0.1.0"
 description = ""
 authors = ["Tobiah Rex <tobiah.rex@gmail.com>"]

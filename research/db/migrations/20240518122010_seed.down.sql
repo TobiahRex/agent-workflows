@@ -27,6 +27,8 @@ DROP INDEX IF EXISTS idx_skl_code_name;
 DROP TABLE IF EXISTS skills;
 
 -- AGENTS
+DROP TRIGGER IF EXISTS agent_rank_trigger ON agents;
+DROP FUNCTION IF EXISTS check_agent_rank;
 DROP INDEX IF EXISTS idx_agt_agent_process;
 DROP TABLE IF EXISTS agents;
 DROP TYPE IF EXISTS agent_status;
@@ -34,5 +36,5 @@ DROP TYPE IF EXISTS agent_status;
 -- AGENT PROCESSES
 DROP INDEX IF EXISTS idx_prc_agent_type_code_name;
 DROP INDEX IF EXISTS idx_prc_code_name;
-DROP TABLE IF EXISTS agent_processes;
+DROP TABLE IF EXISTS processes;
 DROP TYPE IF EXISTS agent_type;

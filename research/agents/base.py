@@ -28,6 +28,7 @@ class BaseAgent(ABC):
     """
 
     def __init__(self, *args, **kwargs):
+        self.type = kwargs.get('type')
         self.title = kwargs.get("title")
         self.job = kwargs.get("job")
         self.background = kwargs.get("background")

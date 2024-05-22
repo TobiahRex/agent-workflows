@@ -34,9 +34,8 @@ CREATE TYPE agent_type AS ENUM (
 	'advisor_design',
 	'advisor_marketing',
 	'advisor_sales',
-	'advisor_legal',
+	'advisor_legal'
 );
-
 CREATE TABLE IF NOT EXISTS processes (
 	id varchar(64) NOT NULL DEFAULT CONCAT('prc_', ksuid_pgcrypto()) PRIMARY KEY,
 	code_name varchar(32) NOT NULL,
@@ -45,7 +44,7 @@ CREATE TABLE IF NOT EXISTS processes (
 	updated_at timestamptz NOT NULL DEFAULT now(),
 	description jsonb NOT NULL DEFAULT '{}'::jsonb,
 	schema jsonb NOT NULL DEFAULT '{}'::jsonb,
-	last_completed_step INT NOT NULL DEFAULT 0,
+	last_completed_step INT NOT NULL DEFAULT 0
 );
 -- Ensure that processes have unique code_names
 CREATE UNIQUE INDEX IF NOT EXISTS idx_prc_code_name ON processes(code_name);
@@ -64,10 +63,12 @@ CREATE TYPE agent_status AS ENUM (
 	'blocked',
 	'meeting',
 	'helping',
-	'getting_approval',
+	'getting_approval'
 );
 CREATE TABLE IF NOT EXISTS agents (
   	id varchar(64) NOT NULL DEFAULT CONCAT('agt_', ksuid_pgcrypto()) PRIMARY KEY,
+	rank INT NOT NULL DEFAULT 0,
+	boss_agent_id varchar(64),
 	agent_type agent_type NOT NULL,
 	process_id varchar(64),
   	created_at timestamptz NOT NULL DEFAULT now(),
@@ -81,9 +82,27 @@ CREATE TABLE IF NOT EXISTS agents (
 	poignancy_score INT NOT NULL DEFAULT 0,
 	reward_score INT NOT NULL DEFAULT 0,
 	status agent_status NOT NULL DEFAULT 'idle',
+
+	CONSTRAINT fk_boss_agent_id FOREIGN KEY (boss_agent_id) REFERENCES agents(id)
 );
 -- Ensure that there's never duplicate agent's doing the same thing.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_agt_agent_process ON agents(process_id, title);
+
+-- CHECK AGENT RANK
+CREATE OR REPLACE FUNCTION check_agent_rank() RETURNS TRIGGER AS $$
+BEGIN
+	IF NEW.boss_agent_id IS NOT NULL THEN
+		IF NEW.rank >= (SELECT rank FROM agents WHERE id = NEW.boss_agent_id) THEN
+			RAISE EXCEPTION 'Agent rank must be less than boss agent rank';
+		END IF;
+	END IF;
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER agent_rank_trigger
+BEFORE INSERT OR UPDATE ON agents
+FOR EACH ROW EXECUTE FUNCTION check_agent_rank();
 
 -- SKILLS
 CREATE TABLE IF NOT EXISTS skills (
@@ -94,7 +113,6 @@ CREATE TABLE IF NOT EXISTS skills (
 	code_name varchar(32) NOT NULL,
 	description jsonb NOT NULL DEFAULT '{}'::jsonb,
 	schema jsonb NOT NULL DEFAULT '{}'::jsonb,
-	agent_id varchar(64) NOT NULL,
 	
 	CONSTRAINT fk_agent_id FOREIGN KEY (agent_id) REFERENCES agents(id)
 );
@@ -119,8 +137,8 @@ CREATE TABLE IF NOT EXISTS jobs (
 	reward INT NOT NULL DEFAULT 0,
 	approved BOOLEAN NOT NULL DEFAULT FALSE,
 	status job_status NOT NULL DEFAULT 'backlog',
-	
-	CONSTRAINT fk_agent_id FOREIGN KEY (agent_id) REFERENCES agents(id)
+
+	CONSTRAINT fk_agent_id FOREIGN KEY (agent_id) REFERENCES agents(id),
 	CONSTRAINT fk_skill_id FOREIGN KEY (skill_id) REFERENCES skills(id)
 );
 -- Ensure that agent's cannot have duplicate jobs with the same poignancy. Jobs should have varying levels of poignancy to ensure that agents are not having to choose from multiple jobs with the same poignancy value, and possibly choose the wrong one.
@@ -136,7 +154,7 @@ CREATE TABLE IF NOT EXISTS job_dependencies (
 	created_at timestamptz NOT NULL DEFAULT now(),
 	updated_at timestamptz NOT NULL DEFAULT now(),
 	
-	CONSTRAINT fk_job_id FOREIGN KEY (job_id) REFERENCES jobs(id)
+	CONSTRAINT fk_job_id FOREIGN KEY (job_id) REFERENCES jobs(id),
 	CONSTRAINT fk_depends_on_job_id FOREIGN KEY (depends_on_job_id) REFERENCES jobs(id)
 );
 -- Ensure that job dependencies are unique: We don't create multiple edges between the same two job nodes.
@@ -146,7 +164,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_dep_job_depends ON job_dependencies(job_id
 CREATE TYPE resource_type AS ENUM (
 	'human',
 	'agent',
-	'reference',
+	'reference'
 );
 CREATE TABLE IF NOT EXISTS resources (
 	id varchar(64) NOT NULL DEFAULT CONCAT('rsrc_', ksuid_pgcrypto()) PRIMARY KEY,
@@ -159,7 +177,7 @@ CREATE TABLE IF NOT EXISTS resources (
 	description jsonb NOT NULL DEFAULT '{}'::jsonb,
 	schema jsonb NOT NULL DEFAULT '{}'::jsonb,
 	
-	CONSTRAINT fk_agent_id FOREIGN KEY (agent_id) REFERENCES agents(id)
+	CONSTRAINT fk_agent_id FOREIGN KEY (agent_id) REFERENCES agents(id),
 	CONSTRAINT fk_rsrc_agent_id FOREIGN KEY (rsrc_agent_id) REFERENCES agents(id)
 );
 -- Ensure that agent's cannot have duplicate resources with the same code_name.
@@ -173,7 +191,7 @@ CREATE TABLE IF NOT EXISTS memory_predicates (
 	created_at timestamptz NOT NULL DEFAULT now(),
 	updated_at timestamptz NOT NULL DEFAULT now(),
 	name varchar(32) NOT NULL,
-	description jsonb NOT NULL DEFAULT '{}'::jsonb,
+	description jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 -- Ensure that memory_predicates are uniquely named
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pred_name ON memory_predicates(name);
@@ -183,7 +201,7 @@ CREATE TYPE memory_type AS ENUM (
 	'chat',
 	'event',
 	'thought',
-	'whisper',
+	'whisper'
 );
 CREATE TABLE IF NOT EXISTS memories (
 	id varchar(64) NOT NULL DEFAULT CONCAT('mem_', ksuid_pgcrypto()) PRIMARY KEY,
@@ -206,8 +224,8 @@ CREATE TABLE IF NOT EXISTS memories (
 	start_depth INT NOT NULL DEFAULT 0,
 	relative_depth_expiration INT NOT NULL DEFAULT 0,
 	
-	CONSTRAINT fk_agent_id FOREIGN KEY (agent_id) REFERENCES agents(id)
-	CONSTRAINT fk_predicate_id FOREIGN KEY (predicate_id) REFERENCES ontologies(id)
+	CONSTRAINT fk_agent_id FOREIGN KEY (agent_id) REFERENCES agents(id),
+	CONSTRAINT fk_predicate_id FOREIGN KEY (predicate_id) REFERENCES memory_predicates(id)
 );
 -- Ensure that agent's cannot have duplicate memories.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mem_agent_embedding ON memories(agent_id, embedding_id);
